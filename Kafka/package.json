@@ -1,0 +1,17 @@
+{
+  "name": "kafka",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cross-fetch": "^4.0.0",
+    "kafkajs": "^2.2.4",
+    "node-geocoder": "^4.4.1",
+    "nominatim-js": "^1.0.10"
+  }
+}
