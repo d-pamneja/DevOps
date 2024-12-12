@@ -6,6 +6,8 @@ const rl = readline.createInterface({
     output : process.stdout
 })
 
+
+
 async function init() {
     try {
         const producer = kafka.producer()
