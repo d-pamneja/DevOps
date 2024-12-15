@@ -1,115 +1,189 @@
-**Title**: How to Set Up a Kafka Producer Instance: A Complete Guide
+### **How to Write PySpark Streaming Code: A Step-by-Step Guide**
 
-**Introduction**:  
-In this tutorial, we’ll guide you through the process of setting up a Kafka producer instance on your machine. Kafka producers are responsible for sending records (or messages) to Kafka topics. You’ll be using Python to build the producer, and you’ll also learn how to interact with Google Cloud Storage (GCS) to fetch data. By the end of this guide, you’ll have a working Kafka producer that can send data to your Kafka topics.
+Streaming large-scale data from Kafka and processing it with PySpark is a powerful approach for real-time data analytics. In this blog, we’ll break down the process of writing PySpark code using a practical example of streaming train schedules from Kafka and processing the messages.
 
 ---
 
-### Step 1: Update Your Instance
+### **Understanding the Code Structure**
 
-To start with, make sure your system is updated and that you have the necessary tools installed.
+Before diving into the code, let’s understand the workflow:
+1. **Initialize a Spark Session**: Set up the Spark environment and load the necessary Kafka connectors.
+2. **Define a Schema**: Specify the structure of the incoming JSON data.
+3. **Connect to Kafka**: Read messages from a Kafka topic.
+4. **Process the Data**: Parse and transform the data to a structured format.
+5. **Perform Analytics**: Apply transformations or aggregations on the streaming data.
+6. **Output Results**: Write the processed data to a sink, such as the console or another system.
 
-```bash
-# Update the package lists for upgrades and new packages
-sudo apt update
+Now let’s dive into each step, using the provided code as an example.
 
-# Install Python3 and pip (Python package manager)
-sudo apt install python3 python3-pip -y
+---
 
-# Install Python 3.11 virtual environment module
-sudo apt install python3.11-venv
+### **Step 1: Initializing the Spark Session**
+
+A Spark session is the entry point to using Spark. It’s where you configure your application and load dependencies.
+
+```python
+from pyspark.sql import SparkSession
+
+# Initialize Spark Session
+spark = SparkSession.builder \
+    .appName("TrainScheduleStreaming") \
+    .config("spark.jars.packages", 
+        "org.apache.spark:spark-sql-kafka-0-10_2.12:3.1.2") \
+    .getOrCreate()
 ```
 
-- The first command ensures that your instance has the latest software updates.
-- Python and pip are required for managing Python packages, and the third command installs Python’s virtual environment module, which is essential for isolating your project’s dependencies.
+- **`appName`**: Identifies your Spark application.
+- **`config`**: Adds the Kafka package required to connect Spark with Kafka. Ensure the version matches your Kafka and Spark setup.
 
 ---
 
-### Step 2: Create and Activate a Virtual Environment
+### **Step 2: Defining the Data Schema**
 
-Using virtual environments is a best practice to manage dependencies for each project without interfering with global Python packages.
+To handle structured data, PySpark requires a schema. A schema defines the column names and data types of the incoming JSON messages.
 
-1. **Create a Virtual Environment**:
-   
-   Run the following command to create a new virtual environment:
+```python
+from pyspark.sql.types import StructType, StringType
 
-   ```bash
-   python3 -m venv .venv
-   ```
-
-2. **Activate the Virtual Environment**:
-   
-   After creating the virtual environment, you need to activate it to start using the isolated environment:
-
-   ```bash
-   source .venv/bin/activate
-   ```
-
-When activated, your terminal prompt will change to show that you're now working inside the `.venv` environment. This ensures that any Python packages you install will be contained within this environment and not affect other projects.
-
----
-
-### Step 3: Install Required Packages
-
-To build the Kafka producer, you need two packages: `kafka-python` (to interact with Kafka) and `google-cloud-storage` (to work with Google Cloud Storage). 
-
-Run the following command to install both packages:
-
-```bash
-pip3 install kafka-python google-cloud-storage
+# Define the schema for your train data
+schema = StructType() \
+    .add("train_name", StringType()) \
+    .add("station", StringType()) \
+    .add("arrival_time", StringType()) \
+    .add("departure_time", StringType()) \
+    .add("sequence", StringType())
 ```
 
-- `kafka-python` is the official Python client for Kafka, and it provides a simple API for producing and consuming Kafka messages.
-- `google-cloud-storage` allows Python to interact with Google Cloud Storage and manage files stored in your GCS buckets.
+- **StructType**: Defines a structure for the JSON data.
+- **Column Types**: Use `StringType` here because Kafka messages are received as strings.
 
 ---
 
-### Step 4: Copy Required Files from GCS Bucket
+### **Step 3: Reading from Kafka**
 
-Your Kafka producer will be processing data stored in Google Cloud Storage. To make the files available on your local machine, use the `gsutil` command to copy them from your GCS bucket to your local environment.
+To consume messages, use the `readStream` method with Kafka-specific configurations.
 
-1. **Copy the CSV File**:  
-   The data you will process is in a CSV file. Run the following command to download the `sample_train_schedule.csv` file from your GCS bucket:
-
-   ```bash
-   gsutil cp gs://oppe-trial-train-schedule/sample_train_schedule.csv .
-   ```
-
-2. **Copy the Producer Script**:  
-   Next, copy the Python script (`producer.py`) that will produce data to Kafka:
-
-   ```bash
-   gsutil cp gs://oppe-trial-train-schedule/producer.py .
-   ```
-
-Now, you should have both the CSV file and the `producer.py` script in your working directory.
-
----
-
-### Step 5: Run the Kafka Producer
-
-Finally, you can run the Kafka producer script to start sending data to Kafka. In the terminal, execute the following command:
-
-```bash
-python3 producer.py
+```python
+# Read from Kafka topic 'train-schedule-topic'
+df = spark.readStream \
+    .format("kafka") \
+    .option("kafka.bootstrap.servers", "10.128.0.6:9092") \
+    .option("subscribe", "train-schedule-topic") \
+    .option("startingOffsets", "earliest") \
+    .load()
 ```
 
-This will execute the `producer.py` script, which is responsible for reading the `sample_train_schedule.csv` file, processing the data, and sending it as Kafka messages to the specified Kafka topic. Ensure that your Kafka server is up and running, and the topic you are producing to exists.
+- **`kafka.bootstrap.servers`**: IP and port of the Kafka broker.
+- **`subscribe`**: Kafka topic name to consume messages from.
+- **`startingOffsets`**: Specifies whether to read messages from the beginning (`earliest`) or the latest messages (`latest`).
 
 ---
 
-### Conclusion
+### **Step 4: Parsing and Transforming Data**
 
-Congratulations! You've successfully set up a Kafka producer that fetches data from Google Cloud Storage and sends it to a Kafka topic. The process involves:
+Transform the Kafka messages (usually raw JSON strings) into structured data using PySpark functions.
 
-1. Setting up your environment with the necessary packages.
-2. Downloading required files from GCS.
-3. Running the producer script to push data into Kafka.
+```python
+from pyspark.sql.functions import from_json, col, to_timestamp
 
-This setup can be extended to more complex use cases, such as sending real-time data to Kafka, integrating with other systems, or even processing the data from Kafka using a consumer.
+# Parse the Kafka message value (JSON) into structured data
+train_data = df.select(
+    from_json(col("value").cast("string"), schema).alias("data")
+).select("data.*")
+
+# Convert arrival_time and departure_time to TimestampType
+train_data = train_data \
+    .withColumn("arrival_time", to_timestamp(col("arrival_time"), "yyyy-MM-dd HH:mm:ss")) \
+    .withColumn("departure_time", to_timestamp(col("departure_time"), "yyyy-MM-dd HH:mm:ss"))
+```
+
+- **`from_json`**: Converts JSON strings to a structured format based on the defined schema.
+- **`withColumn`**: Transforms columns, here converting strings to timestamps.
+
+---
+
+### **Step 5: Performing Analytics**
+
+In this example, we compute a rolling count of trains arriving at each station in 20-minute intervals.
+
+```python
+from pyspark.sql.functions import window, count
+
+# Compute 20-minute rolling count for each station based on arrival_time
+rolling_counts = train_data \
+    .withWatermark("arrival_time", "20 minutes") \
+    .groupBy(
+        window(col("arrival_time"), "20 minutes", "5 minutes"),
+        col("station")
+    ) \
+    .agg(count("*").alias("train_count"))
+```
+
+- **`withWatermark`**: Handles late data by specifying a maximum delay.
+- **`window`**: Groups data into time intervals (20 minutes with 5-minute slides).
+- **`agg`**: Performs an aggregation, here counting rows.
+
+---
+
+### **Step 6: Writing the Output**
+
+Finally, write the processed data to the console for debugging or testing.
+
+```python
+# Write the output to the console in Complete mode
+query = rolling_counts.writeStream \
+    .outputMode("complete") \
+    .format("console") \
+    .trigger(processingTime="60 seconds") \
+    .start()
+
+query.awaitTermination()
+```
+
+- **`outputMode`**: In `complete` mode, writes all aggregated results to the output sink.
+- **`format`**: Specifies the output format, here the console.
+- **`trigger`**: Sets the processing interval.
+
+---
+
+### **How to Replicate for Other Use Cases**
+
+You can adapt this code for different streaming scenarios. For example:
+1. **Change the Kafka Topic**: Modify the `subscribe` option in the Kafka configuration.
+2. **Update the Schema**: Adjust the schema to match the structure of your Kafka messages.
+3. **Perform Different Analytics**: Replace the `groupBy` and `agg` functions to apply different transformations (e.g., averages, sums).
+
+---
+
+### **Testing: Dumping Messages to the Terminal**
+
+If you want to keep things simple and just dump Kafka messages to the terminal, use this minimal modification:
+
+```python
+# Parse the Kafka message value
+raw_data = df.select(col("value").cast("string"))
+
+# Write the raw messages to the console
+query = raw_data.writeStream \
+    .outputMode("append") \
+    .format("console") \
+    .trigger(processingTime="10 seconds") \
+    .start()
+
+query.awaitTermination()
+```
+
+This setup will print all incoming messages from Kafka in their raw format, making it useful for debugging or quick testing.
+
+---
+
+### **Conclusion**
+
+In this guide, you learned how to write a PySpark streaming application to consume messages from Kafka and process them in real time. The example covered initializing Spark, parsing Kafka messages, and performing rolling aggregations. With this knowledge, you can extend PySpark to a variety of streaming analytics use cases.
 
 ---
 
 **References**:  
-- [Apache Kafka Documentation](https://kafka.apache.org/documentation/)
-- [Google Cloud Storage Python Client](https://googleapis.dev/python/storage/latest/)
+- [Apache Spark Streaming Documentation](https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html)  
+- [Kafka Python Client](https://kafka-python.readthedocs.io/en/master/)  
+
