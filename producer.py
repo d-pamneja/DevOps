@@ -1,16 +1,15 @@
-from google.cloud import pubsub_v1
 import csv
 import time
+from kafka import KafkaProducer
 
-# Initialize Pub/Sub client
-publisher = pubsub_v1.PublisherClient()
-topic_path = "projects/evident-hexagon-437915-p3/topics/OPPE_Trial_1_Train_Schedule"
+producer = KafkaProducer(bootstrap_servers="10.128.0.6:9092", value_serializer=lambda v: v.encode("utf-8"))
 
-# Stream data from CSV to Pub/Sub
 with open("sample_train_schedule.csv", "r") as file:
     csv_reader = csv.DictReader(file)
     for row in csv_reader:
-        message = str(row).encode("utf-8")
-        publisher.publish(topic_path, message)
-        time.sleep(1)  # Simulates real-time data
-print("Data published to Pub/Sub.")
+        message = str(row)
+        producer.send("train-schedule-topic", message)
+        print(f"Published: {message}")
+        time.sleep(1)
+
+print("Data published to Kafka topic.")
